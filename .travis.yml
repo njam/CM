@@ -11,9 +11,9 @@ services:
 before_script:
   - sudo apt-get install autoconf
   - tests/travis/install-apcu.sh
-  - tests/travis/install-memcache.sh
   - phpenv config-add tests/travis/$TRAVIS_PHP_VERSION.ini
   - phpenv config-add tests/travis/apc.ini
+  - pecl install memcache
   - composer install --dev
   - scripts/cm.php app generate-config-local resources/config/local.ci.json
   - scripts/cm.php app set-deploy-version
