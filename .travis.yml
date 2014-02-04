@@ -14,7 +14,7 @@ before_script:
   - tests/travis/install-memcache.sh
   - phpenv config-add tests/travis/$TRAVIS_PHP_VERSION.ini
   - phpenv config-add tests/travis/apc.ini
-  - composer --no-interaction install --prefer-dist --no-dev
+  - composer install --dev
   - scripts/cm.php app generate-config-local resources/config/local.ci.json
   - scripts/cm.php app set-deploy-version
 script: phpunit
