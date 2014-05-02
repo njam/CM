@@ -2,21 +2,27 @@
 
 class CM_File extends CM_Class_Abstract {
 
+    /** @var  Gaufrette\Filesystem|null */
+    protected $_filesystem;
+
     /** @var string */
     private $_path;
 
     /**
-     * @param string|CM_File $file Path to file
-     * @throws CM_Exception_Invalid
+     * @param string|CM_File            $file Path to file
+     * @param Gaufrette\Filesystem|null $filesystem
      */
-    public function __construct($file) {
+    public function __construct($file, Gaufrette\Filesystem $filesystem = null) {
         if ($file instanceof CM_File) {
             $file = $file->getPath();
         }
-        $this->_path = (string) $file;
-        if (!$this->getExists()) {
-            throw new CM_Exception_Invalid('File path `' . $file . '` does not exist or is not a file.');
+
+        if (null === $filesystem) {
+            $filesystem = self::_getFilesystemDefault();
         }
+
+        $this->_filesystem = $filesystem;
+        $this->_path = (string) $file;
     }
 
     /**
@@ -45,11 +51,11 @@ class CM_File extends CM_Class_Abstract {
      * @throws CM_Exception
      */
     public function getSize() {
-        $size = filesize($this->getPath());
-        if (false === $size) {
+        try {
+            return $this->_getFilesystem()->size($this->getPath());
+        } catch (Gaufrette\Exception\FileNotFound $e) {
             throw new CM_Exception('Cannot detect filesize of `' . $this->getPath() . '`');
         }
-        return $size;
     }
 
     /**
@@ -186,6 +192,13 @@ class CM_File extends CM_Class_Abstract {
     }
 
     /**
+     * @return \Gaufrette\Filesystem
+     */
+    protected function _getFilesystem() {
+        return $this->_filesystem;
+    }
+
+    /**
      * @return string|null
      */
     protected function _readFirstLine() {
@@ -212,18 +225,31 @@ class CM_File extends CM_Class_Abstract {
     }
 
     /**
-     * @param string      $path
-     * @param string|null $content
-     * @return CM_File
+     * @param string                    $path
+     * @param string|null               $content
+     * @param Gaufrette\Filesystem|null $filesystem
      * @throws CM_Exception
+     * @return CM_File
      */
-    public static function create($path, $content = null) {
+    public static function create($path, $content = null, Gaufrette\Filesystem $filesystem = null) {
         $content = (string) $content;
-        if (false === @file_put_contents($path, $content)) {
+
+        if (null === $filesystem) {
+            $filesystem = self::_getFilesystemDefault();
+        }
+
+        try {
+            $pathRelative = substr($path, 1);
+            $filesystem->write($pathRelative, $content, true);
+        } catch (Gaufrette\Exception\FileAlreadyExists $e) {
+            throw new CM_Exception('Cannot write to `' . $path . '`.');
+        } catch (RuntimeException $e) {
+            throw new CM_Exception('Cannot write to `' . $path . '`.');
+        } catch (ErrorException $e) {
             throw new CM_Exception('Cannot write to `' . $path . '`.');
         }
-        $file = new static($path);
-        return $file;
+
+        return new static($path, $filesystem);
     }
 
     /**
@@ -296,5 +322,13 @@ class CM_File extends CM_Class_Abstract {
             default:
                 return new CM_File($path);
         }
+    }
+
+    /**
+     * @return \Gaufrette\Filesystem
+     */
+    protected static function _getFilesystemDefault() {
+        $adapter = new Gaufrette\Adapter\Local('/');
+        return new Gaufrette\Filesystem($adapter);
     }
 }
